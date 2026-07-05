@@ -1,51 +1,162 @@
-# Flask CI/CD Assignment
+EC2 Instance
 
-This repository contains a simple Flask application with:
-- a Jenkins pipeline
-- a GitHub Actions workflow
-- unit tests
-- deployment scripts for staging/production
+ 
 
-## Prerequisites
+Jav installs
+ 
 
-- Python 3.10+
-- pip
-- Jenkins installed and configured
-- GitHub repository with branch protection enabled if needed
+Commands for Jenkins
+sudo apt update -y
+sudo apt install -y openjdk-11-jdk git curl gnupg2 software-properties-common’
 
-## Local Setup
+curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | \
+  sudo gpg --dearmor -o /usr/share/keyrings/jenkins-keyring.gpg
 
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows use .venv\Scripts\activate
-pip install -r requirements.txt
-pytest -q
-```
+echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.gpg] \
+https://pkg.jenkins.io/debian-stable binary/" | \
+sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
 
-## Jenkins Setup
+sudo apt update -y
+sudo apt install -y Jenkins
 
-1. Install Jenkins on a VM or cloud server.
-2. Install Python, pip, and the following plugins:
-   - GitHub Integration
-   - Pipeline
-   - Email Extension
-3. Create a new Pipeline job.
-4. Point it to this repository.
-5. Use the included Jenkinsfile.
-6. Configure GitHub hook or polling for the main branch.
-7. Replace the email address in Jenkinsfile with your email.
+ 
 
-## GitHub Actions Setup
+Jenkins user key
+  
 
-1. Push this repository to GitHub.
-2. Create branches `main` and `staging`.
-3. Add secrets if you later connect to a real deployment target.
-4. The workflow will run on pushes to `main` and `staging` and on version tags starting with `v`.
+ 
 
-## Deployment
+Adding student record  
+ 
+ 
 
-The deployment step runs the script in [scripts/deploy.sh](scripts/deploy.sh).
 
-## Assignment Submission
 
-Submit the GitHub repository URL along with screenshots of the Jenkins and GitHub Actions runs.
+
+
+
+
+
+
+
+
+
+Updating student record
+
+ 
+
+Deleted sumit age 23 
+ 
+
+Jenkins file
+pipeline {
+    agent any
+
+    environment {
+        PYTHONUNBUFFERED = '1'
+    }
+
+    triggers {
+        githubPush()
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                sh 'python3 -m pip install --upgrade pip'
+                sh 'python3 -m pip install -r requirements.txt'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'python3 -m pytest -q'
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                branch 'main'
+            }
+            steps {
+                sh 'chmod +x scripts/deploy.sh && ./scripts/deploy.sh'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully.'
+        }
+        failure {
+            mail to: 'your-email@example.com',
+                 subject: "Jenkins Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: 'The Jenkins pipeline failed. Please check the console output.'
+        }
+    }
+}
+
+App.py
+from flask import Flask, redirect, render_template, request, url_for
+
+app = Flask(__name__)
+
+students = []
+next_id = 1
+
+@app.route("/", methods=["GET", "POST"])
+def home():
+    global next_id
+
+    if request.method == "POST":
+        student_id = request.form.get("student_id", type=int)
+        name = request.form.get("name", "").strip()
+        course = request.form.get("course", "").strip()
+
+        if not name or not course:
+            return redirect(url_for("home"))
+
+        if student_id is None:
+            students.append({"id": next_id, "name": name, "course": course})
+            next_id += 1
+        else:
+            for student in students:
+                if student["id"] == student_id:
+                    student["name"] = name
+                    student["course"] = course
+                    break
+
+        return redirect(url_for("home"))
+
+    return render_template("index.html", students=students)
+
+@app.route("/edit/<int:student_id>")
+def edit_student(student_id):
+    student = next((s for s in students if s["id"] == student_id), None)
+    if student is None:
+        return redirect(url_for("home"))
+
+    return render_template(
+        "index.html",
+        students=students,
+        student_id=student["id"],
+        name=student["name"],
+        course=student["course"],
+    )
+
+@app.route("/delete/<int:student_id>")
+def delete_student(student_id):
+    global students
+    students = [s for s in students if s["id"] != student_id]
+    return redirect(url_for("home"))
+
+@app.route("/health")
+def health():
+    return {"status": "ok"}
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
+
+http://127.0.0.1:5000/
+
+
